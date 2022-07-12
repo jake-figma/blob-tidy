@@ -1,0 +1,11 @@
+{
+  "name": "blob-tidy",
+  "version": "1.0.0",
+  "description": "a tidy plugin for figma and figjam",
+  "scripts": {},
+  "author": "Figma",
+  "license": "MIT License",
+  "devDependencies": {
+    "@figma/plugin-typings": "*"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "Blob Tidy",
+  "id": "1128795550806441376",
+  "api": "1.0.0",
+  "editorType": ["figma", "figjam"],
+  "permissions": [],
+  "main": "code.js"
+}
