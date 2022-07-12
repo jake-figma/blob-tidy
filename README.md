@@ -2,6 +2,8 @@
 
 A Figma and FigJam plugin that tidies your current selection in a bloblike fashion.
 
+Check it out in [the Figma Community](https://www.figma.com/community/plugin/1128795550806441376/Blob-Tidy)!
+
 This repo was created by @figma/create-widget
 
 ## Getting started with widget development
