@@ -18,10 +18,14 @@ class Packer {
       totalArea += block.area;
     });
     this.idsPortrait.sort(
-      (a, b) => this.blocks[b].height - this.blocks[a].height
+      (a, b) =>
+        this.blocks[b].height - this.blocks[a].height ||
+        this.blocks[b].area - this.blocks[a].area
     );
     this.idsLandscape.sort(
-      (a, b) => this.blocks[b].width - this.blocks[a].width
+      (a, b) =>
+        this.blocks[b].width - this.blocks[a].width ||
+        this.blocks[b].area - this.blocks[a].area
     );
 
     const diameter = Math.sqrt(totalArea * 1.1);
