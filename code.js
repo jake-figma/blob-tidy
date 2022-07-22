@@ -1,35 +1,44 @@
 const GAP = 50;
+const PI = Math.PI;
 
 class Packer {
   fit(blocks) {
     const sortedByArea = blocks.sort((a, b) => b.area - a.area);
     this.blocks = {};
-    this.idsLandscape = [];
-    this.idsPortrait = [];
+    this.idsByWidth = [];
+    this.idsByHeight = [];
     let totalArea = 0;
     sortedByArea.forEach((block) => {
-      if (block.portrait) {
-        this.idsPortrait.push(block.id);
-      }
-      if (block.landscape) {
-        this.idsLandscape.push(block.id);
-      }
+      this.idsByHeight.push(block.id);
+      this.idsByWidth.push(block.id);
       this.blocks[block.id] = block;
       totalArea += block.area;
     });
-    this.idsPortrait.sort(
+    this.idsByHeight.sort(
       (a, b) =>
         this.blocks[b].height - this.blocks[a].height ||
         this.blocks[b].area - this.blocks[a].area
     );
-    this.idsLandscape.sort(
+    this.idsByWidth.sort(
       (a, b) =>
         this.blocks[b].width - this.blocks[a].width ||
         this.blocks[b].area - this.blocks[a].area
     );
 
-    const diameter = Math.sqrt(totalArea * 1.1);
-    this.performCorner(0, 0, diameter);
+    return this.performLoop(totalArea, 1);
+  }
+
+  performLoop(totalArea, factor) {
+    return new Promise((resolve) => {
+      const fit = this.performCorner(0, 0, Math.sqrt(totalArea * factor));
+      resolve(fit ? true : this.performLoop(totalArea, factor + 0.04));
+    });
+  }
+
+  adjustedDiameterFromDiameterAndPosition(position, diameter) {
+    const degrees = (position / diameter) * 45;
+    const angle = degrees * (PI / 180);
+    return Math.cos(angle) * diameter;
   }
 
   performCorner(
@@ -46,32 +55,41 @@ class Packer {
     let newX = null;
     let newY = null;
     let firstX = false;
-    while (x < diameter && i < this.idsPortrait.length) {
-      const block = this.blocks[this.idsPortrait[i]];
+    let firstHeight = null;
+    let firstWidth = null;
+    const di = this.adjustedDiameterFromDiameterAndPosition(startX, diameter);
+    while (x < di && i < this.idsByHeight.length) {
+      const block = this.blocks[this.idsByHeight[i]];
       if (!used[block.id]) {
         if (newX === null && !firstX) {
           y += block.height;
+        }
+        if (firstHeight === null) {
+          firstHeight = block.height;
         }
         if (newX === null && firstX) {
           newX = x;
         }
         firstX = true;
         used[block.id] = 1;
-        block.fit = { x, y: startY };
+        const localY = startY + Math.floor((firstHeight - block.height) * 0.5);
+        block.fit = { x, y: localY };
         x += block.width;
       }
       i++;
     }
-    while (y < diameter && j < this.idsLandscape.length) {
-      const block = this.blocks[this.idsLandscape[j]];
+    while (y < di && j < this.idsByWidth.length) {
+      const block = this.blocks[this.idsByWidth[j]];
       if (!used[block.id]) {
+        if (firstWidth === null) {
+          firstWidth = block.width;
+        }
         used[block.id] = 1;
-        block.fit = { x: startX, y };
+        const localX = startX + Math.floor((firstWidth - block.width) * 0.5);
+        block.fit = { x: localX, y };
         if (newY === null) {
           newY = y;
-          if (startX + block.width > newX) {
-            newX = startX + block.width;
-          }
+          newX = startX + block.width;
         }
         y += block.height;
       }
@@ -80,9 +98,18 @@ class Packer {
     if (loopIndex === 0) {
       this.root = { width: x, height: y };
     }
-    if (newY !== null || newX !== null) {
-      this.performCorner(newX, newY, diameter, i, j, used, loopIndex + 1);
+    if (newY !== null && newX !== null) {
+      return this.performCorner(
+        newX,
+        newY,
+        diameter,
+        i,
+        j,
+        used,
+        loopIndex + 1
+      );
     }
+    return Object.keys(used).length === Object.keys(this.blocks).length;
   }
 }
 
@@ -97,35 +124,37 @@ const items = figma.currentPage.selection
       height: height + GAP,
       width: width + GAP,
       area: (width + GAP) * (height + GAP),
-      portrait: height >= width,
-      landscape: height <= width,
     };
   });
 
 const groups = [[], [], [], []];
 items.forEach((item, i) => groups[i % 4].push(item));
-groups.forEach((items, i) => {
-  const packer = new Packer();
-  packer.fit(items);
-  if (packer.root) {
-    const rootW = packer.root.width;
-    const rootH = packer.root.height;
-    const offsetX = i === 1 || i === 0 ? rootW * -1 : 0;
-    const offsetY = i === 1 || i === 2 ? rootH * -1 : 0;
-    items.forEach((item) => {
-      const node = figma.getNodeById(item.id);
-      if (item.fit) {
-        const itemX =
-          i === 1 || i === 0 ? rootW - item.fit.x - item.width : item.fit.x;
-        const itemY =
-          i === 1 || i === 2 ? rootH - item.fit.y - item.height : item.fit.y;
-        const group = figma.group([node], node.parent);
-        group.x = itemX + offsetX + figma.viewport.center.x;
-        group.y = itemY + offsetY + figma.viewport.center.y;
-        figma.ungroup(group);
-      }
-    });
-  }
-});
 
-figma.closePlugin();
+run();
+
+async function run() {
+  await Promise.all(groups.map(pack));
+  figma.viewport.scrollAndZoomIntoView(figma.currentPage.selection);
+  figma.closePlugin();
+}
+
+async function pack(items, i) {
+  const packer = new Packer();
+  await packer.fit(items);
+  const rootW = packer.root.width;
+  const rootH = packer.root.height;
+  const flipX = i === 1 || i === 2;
+  const flipY = i === 2 || i === 3;
+  const offsetX = flipX ? rootW * -1 : 0;
+  const offsetY = flipY ? rootH * -1 : 0;
+  items.forEach((item) => {
+    const node = figma.getNodeById(item.id);
+    const itemX = flipX ? rootW - item.fit.x - item.width : item.fit.x;
+    const itemY = flipY ? rootH - item.fit.y - item.height : item.fit.y;
+    const group = figma.group([node], node.parent);
+    group.x = itemX + offsetX + figma.viewport.center.x;
+    group.y = itemY + offsetY + figma.viewport.center.y;
+    figma.ungroup(group);
+  });
+  return true;
+}
