@@ -1,5 +1,7 @@
 # Blob Tidy
 
+![](BlobTidyBanner.png)
+
 A Figma and FigJam plugin that tidies your current selection in a bloblike fashion.
 
 Check it out in [the Figma Community](https://www.figma.com/community/plugin/1128795550806441376/Blob-Tidy)!
