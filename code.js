@@ -2,8 +2,10 @@ const GAP = 50;
 const PI = Math.PI;
 
 class Packer {
-  fit(blocks) {
-    const sortedByArea = blocks.sort((a, b) => b.area - a.area);
+  fit(blocks, sorted = false) {
+    const sortedByArea = sorted
+      ? blocks
+      : blocks.sort((a, b) => b.area - a.area);
     this.blocks = {};
     this.idsByWidth = [];
     this.idsByHeight = [];
@@ -25,7 +27,7 @@ class Packer {
         this.blocks[b].area - this.blocks[a].area
     );
 
-    return this.performLoop(totalArea, 1);
+    return this.performLoop(totalArea, 1.1);
   }
 
   performLoop(totalArea, factor) {
@@ -128,7 +130,9 @@ const items = figma.currentPage.selection
   });
 
 const groups = [[], [], [], []];
-items.forEach((item, i) => groups[i % 4].push(item));
+const sortedByArea = items.sort((a, b) => b.area - a.area);
+sortedByArea.forEach((item, i) => groups[i % 4].push(item));
+// sortedByArea.forEach((item, i) => groups[0].push(item));
 
 run();
 
@@ -140,7 +144,7 @@ async function run() {
 
 async function pack(items, i) {
   const packer = new Packer();
-  await packer.fit(items);
+  await packer.fit(items, true);
   const rootW = packer.root.width;
   const rootH = packer.root.height;
   const flipX = i === 1 || i === 2;
